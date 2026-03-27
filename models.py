@@ -13,6 +13,8 @@ class User(UserMixin, db.Model):
 
     username = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
+    first_name = db.Column(db.String(100), nullable=False, default="")
+    last_name = db.Column(db.String(100), nullable=False, default="")
 
     role = db.Column(db.String(20), default="user", nullable=False)
 

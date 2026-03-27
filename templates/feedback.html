@@ -18,6 +18,14 @@
 <form method="POST" action="{{ url_for('feedback.submit_feedback') }}">
   <h1>Submit Feedback</h1>
 
+  {% if success %}
+    <p class="success">{{ success }}</p>
+  {% endif %}
+
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       {% for category, message in messages %}
@@ -32,12 +40,14 @@
   </div>
 
   <div class="input-box">
-    <input type="email" name="email" placeholder="Your Email" required>
+    <input type="email" id="email" name="email" placeholder="Your Email" required>
     <i class='bx bxs-envelope'></i>
+    <span id="email-error" style="color: red; font-size: 0.8rem; display: none;">Please enter a valid email address (e.g. name@example.com)</span>
   </div>
 
   <div class="input-box">
-    <textarea name="message" placeholder="Your Message" required></textarea>
+    <textarea id="message" name="message" placeholder="Your Message" maxlength="2000" required style="border: 1px solid #ccc; border-radius: 4px; padding: 10px; width: 100%; box-sizing: border-box;"></textarea>
+    <span id="char-count" style="font-size: 0.8rem; color: #ccc;">2000 characters remaining</span>
   </div>
 
   <button type="submit" class="btn">Send Feedback</button>
@@ -49,6 +59,33 @@
 
 
 </div>
+
+<script>
+  // Email validation label
+  const emailInput = document.getElementById('email');
+  const emailError = document.getElementById('email-error');
+
+  emailInput.addEventListener('blur', function () {
+    const val = emailInput.value.trim();
+    const valid = /^[^@]+@[^@]+\.[^@]+$/.test(val);
+    emailError.style.display = (val && !valid) ? 'block' : 'none';
+  });
+
+  emailInput.addEventListener('input', function () {
+    emailError.style.display = 'none';
+  });
+
+  // Character countdown
+  const messageInput = document.getElementById('message');
+  const charCount = document.getElementById('char-count');
+  const MAX = 2000;
+
+  messageInput.addEventListener('input', function () {
+    const remaining = MAX - messageInput.value.length;
+    charCount.textContent = remaining + ' characters remaining';
+    charCount.style.color = remaining < 100 ? 'red' : '#ccc';
+  });
+</script>
 
 </body>
 </html>

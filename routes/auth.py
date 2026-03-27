@@ -19,6 +19,8 @@ def password_ok(pw: str):
         return False
     if not re.search(r"[0-9]", pw):
         return False
+    if not re.search(r"[\x21-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E]", pw):
+        return False
     return True
 
 
@@ -30,12 +32,18 @@ def register():
     if request.method == "POST":
 
         username = request.form.get("username", "").strip()
+        first_name = request.form.get("first_name", "").strip()
+        last_name = request.form.get("last_name", "").strip()
         password = request.form.get("password", "")
         confirm_password = request.form.get("confirm_password", "")
 
         answer1 = request.form.get("answer1", "").lower().strip()
         answer2 = request.form.get("answer2", "").lower().strip()
         answer3 = request.form.get("answer3", "").lower().strip()
+
+        if not first_name or not last_name:
+            flash("First and last name are required.", "error")
+            return redirect(url_for("auth.register"))
 
         if len(username) < 3:
             flash("Username must be at least 3 characters.", "error")
@@ -46,8 +54,15 @@ def register():
             return redirect(url_for("auth.register"))
 
         if not password_ok(password):
-            flash("Password must be 8+ chars, include 1 uppercase and 1 number.", "error")
+            flash("Password must be 8+ chars, include at least 1 uppercase, 1 number & 1 symbol.", "error")
             return redirect(url_for("auth.register"))
+
+        pw_lower = password.lower()
+        name_parts = [p for p in [first_name.lower(), last_name.lower()] if len(p) >= 3]
+        for part in name_parts:
+            if part in pw_lower:
+                flash(f"Password must not contain your first or last name.", "error")
+                return redirect(url_for("auth.register"))
 
         if User.query.filter_by(username=username).first():
             flash("Username already exists.", "error")
@@ -55,6 +70,8 @@ def register():
 
         user = User(
             username=username,
+            first_name=first_name,
+            last_name=last_name,
             role="user",
             security_answer1=answer1,
             security_answer2=answer2,
@@ -154,13 +171,13 @@ def verify_username():
             return redirect(url_for("auth.login"))
 
         session["reset_user"] = user.id
-
-        # Secure reset token
         session["reset_token"] = secrets.token_hex(16)
+        session["reset_step"] = "security_question"
 
         session.pop("current_question", None)
         session.pop("correct_answer", None)
         session.pop("attempts", None)
+        session.pop("reset_verified", None)
 
         return redirect(url_for("auth.security_question"))
 
@@ -175,7 +192,7 @@ def security_question():
     user_id = session.get("reset_user")
     token = session.get("reset_token")
 
-    if not user_id or not token:
+    if not user_id or not token or session.get("reset_step") != "security_question":
         return redirect(url_for("auth.login"))
 
     user = User.query.get(user_id)
@@ -222,6 +239,7 @@ def security_question():
 
         if session["attempts"] == 1:
 
+            session["reset_step"] = "reset_password"
             return redirect(url_for("auth.reset_password"))
 
         else:
@@ -245,7 +263,7 @@ def reset_password():
     user_id = session.get("reset_user")
     token = session.get("reset_token")
 
-    if not user_id or not token:
+    if not user_id or not token or session.get("reset_step") != "reset_password":
         flash("Unauthorized password reset attempt.", "error")
         return redirect(url_for("auth.login"))
 
@@ -253,7 +271,7 @@ def reset_password():
 
     if request.method == "POST":
 
-        new_password = request.form.get("new_password")
+        new_password = request.form.get("password")
         confirm_password = request.form.get("confirm_password")
 
         if new_password != confirm_password:
@@ -261,7 +279,7 @@ def reset_password():
             return render_template("reset_password.html")
 
         if not password_ok(new_password):
-            flash("Password must contain at least 8 characters, one uppercase letter and one number.", "error")
+            flash("Password must be 8+ chars, include at least 1 uppercase, 1 number & 1 symbol.", "error")
             return render_template("reset_password.html")
 
         user.set_password(new_password)

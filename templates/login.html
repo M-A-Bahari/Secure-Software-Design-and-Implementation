@@ -34,8 +34,8 @@
 </div>
 
 <div class="input-box">
-<input type="password" name="password" placeholder="Password" required>
-<i class='bx bxs-lock-alt'></i>
+<input type="password" name="password" id="password" placeholder="Password" required>
+<i id="eye-password" class='bx bxs-hide' style="cursor:pointer;" onmousedown="peek('password')" onmouseup="hide('password')" onmouseleave="hide('password')"></i>
 </div>
 
 <div class="remember-forgot">
@@ -54,6 +54,20 @@
 </form>
 
 </div>
+
+<script>
+function peek(id) {
+    document.getElementById(id).type = "text";
+    const eye = document.getElementById("eye-" + id);
+    eye.classList.replace("bxs-hide", "bxs-show");
+    setTimeout(() => hide(id), 500);
+}
+function hide(id) {
+    document.getElementById(id).type = "password";
+    const eye = document.getElementById("eye-" + id);
+    eye.classList.replace("bxs-show", "bxs-hide");
+}
+</script>
 
 </body>
 </html>
