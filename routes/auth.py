@@ -73,12 +73,13 @@ def register():
             first_name=first_name,
             last_name=last_name,
             role="user",
-            security_answer1=answer1,
-            security_answer2=answer2,
-            security_answer3=answer3
+            security_answer1="",
+            security_answer2="",
+            security_answer3=""
         )
 
         user.set_password(password)
+        user.set_security_answers(answer1, answer2, answer3)
 
         db.session.add(user)
         db.session.commit()
@@ -200,19 +201,19 @@ def security_question():
     if "current_question" not in session:
 
         questions = [
-            ("First pet's name?", user.security_answer1),
-            ("Elementary school you attended?", user.security_answer2),
-            ("City you were born in?", user.security_answer3)
+            ("First pet's name?", "answer1"),
+            ("Elementary school you attended?", "answer2"),
+            ("City you were born in?", "answer3")
         ]
 
         question = random.choice(questions)
 
         session["current_question"] = question[0]
-        session["correct_answer"] = question[1]
+        session["answer_field"] = question[1]
         session["attempts"] = 0
 
     question_text = session["current_question"]
-    correct_answer = session["correct_answer"]
+    answer_field = session["answer_field"]
 
     if request.method == "POST":
 
@@ -228,7 +229,8 @@ def security_question():
 
             return redirect(url_for("auth.login"))
 
-        if answer != correct_answer:
+        stored_hash = getattr(user, f"security_{answer_field}")
+        if not user.check_security_answer(answer, stored_hash):
 
             flash("Incorrect answer. Try again.", "error")
 
@@ -245,7 +247,7 @@ def security_question():
         else:
 
             session.pop("current_question", None)
-            session.pop("correct_answer", None)
+            session.pop("answer_field", None)
             session["attempts"] = 0
 
             flash("Correct. Please answer another security question.", "info")

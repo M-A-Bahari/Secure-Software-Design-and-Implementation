@@ -11,10 +11,11 @@ class User(UserMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    username = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(200), nullable=False)
     first_name = db.Column(db.String(100), nullable=False, default="")
     last_name = db.Column(db.String(100), nullable=False, default="")
+
+    username = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(200), nullable=False)
 
     role = db.Column(db.String(20), default="user", nullable=False)
 
@@ -32,6 +33,14 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password: str):
         return bcrypt.check_password_hash(self.password_hash, password)
+
+    def set_security_answers(self, answer1: str, answer2: str, answer3: str):
+        self.security_answer1 = bcrypt.generate_password_hash(answer1.lower().strip()).decode("utf-8")
+        self.security_answer2 = bcrypt.generate_password_hash(answer2.lower().strip()).decode("utf-8")
+        self.security_answer3 = bcrypt.generate_password_hash(answer3.lower().strip()).decode("utf-8")
+
+    def check_security_answer(self, answer: str, stored_hash: str) -> bool:
+        return bcrypt.check_password_hash(stored_hash, answer.lower().strip())
     
 class Feedback(db.Model):
     __tablename__ = "feedback"
