@@ -191,8 +191,8 @@ def verify_username():
         user = User.query.filter_by(username=username).first()
 
         if not user:
-            flash("Sorry, we could not verify your identity.", "error")
-            return redirect(url_for("auth.login"))
+            flash("If that username exists, you will be prompted to answer a security question.", "info")
+            return redirect(url_for("auth.verify_username"))
 
         session["reset_user"] = user.id
         session["reset_token"] = secrets.token_hex(16)

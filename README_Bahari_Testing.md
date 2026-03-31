@@ -386,19 +386,20 @@ An attacker observes system responses to determine whether a username exists. Di
 |------|-------|----------|--------|
 | Login with non-existent username | `notauser` / any password | Generic error | ✓ "Invalid credentials." |
 | Login with real username + wrong password | `Bahari` / `wrongpass` | Generic error | ✓ "Invalid credentials. 4 attempts remaining." |
-| Verify username (reset flow) with unknown username | `ghost` | Generic error | ✗ "Sorry, we could not verify your identity." — different message |
+| Verify username (reset flow) with unknown username | `ghost` | Generic error | ✓ "If that username exists, you will be prompted to answer a security question." |
+| Verify username (reset flow) with valid username | `Bahari` | Advance to security question | ✓ Redirects to security question page |
 
 #### Finding
-Login is safe — same message regardless of whether the username exists. However, `/verify_username` in the password reset flow returns a distinct error ("Sorry, we could not verify your identity.") that differs from a successful lookup. This allows an attacker to enumerate valid usernames via the reset flow.
+Login and reset flow both now return identical, non-revealing responses regardless of whether the username exists. Fixed on 2026-03-31 — `/verify_username` now always shows the same info message and stays on the same page whether the username is valid or not.
 
-#### Status: ⚠ Partial
+#### Status: ✓ Mitigated
 - Login: ✓ Mitigated — generic message
-- Reset flow (`/verify_username`): ✗ Still enumerable — distinct error message
+- Reset flow (`/verify_username`): ✓ Mitigated — same response regardless of username validity
 
 #### CWE reference
 | CWE ID | Name | Status |
 |--------|------|--------|
-| CWE-203 | Observable Discrepancy | ⚠ Partial — login safe, reset flow leaks |
+| CWE-203 | Observable Discrepancy | ✓ Resolved — generic message on both login and reset flow |
 
 ---
 
@@ -760,7 +761,7 @@ Same as Threat 8 — `SameSite=Lax` provides partial protection. No CSRF tokens 
 
 | # | Threat | CWE | Status |
 |---|--------|-----|--------|
-| 1 | Username Enumeration | CWE-203 | ⚠ Partial — login safe, reset flow leaks |
+| 1 | Username Enumeration | CWE-203 | ✓ Mitigated — generic message on login and reset flow |
 | 2 | Password Guessing / Brute Force | CWE-307 | ✓ Mitigated — progressive lockout |
 | 3 | Stored Credentials in DB | CWE-522 | ✓ Mitigated — bcrypt everywhere |
 | 4 | Password Recovery Abuse | CWE-640 | ⚠ Partial — flow protected, only 1 of 3 questions asked |
@@ -782,7 +783,7 @@ Same as Threat 8 — `SameSite=Lax` provides partial protection. No CSRF tokens 
 | Critical | Weak `SECRET_KEY` (Threat 9) | Generate with `secrets.token_urlsafe(32)`, store in `.env` |
 | High | `debug=True` hardcoded (Threat 11) | Toggle via `FLASK_ENV` environment variable |
 | High | No CSRF tokens (Threats 8, 13) | Implement Flask-WTF `CSRFProtect` |
-| Medium | `/verify_username` enumerates usernames (Threat 1) | Use generic message regardless of outcome |
+| Medium | `/verify_username` enumerates usernames (Threat 1) | ✓ Fixed — generic message regardless of outcome |
 | Medium | Only 1 of 3 security questions asked (Threat 4) | Require answers to all 3 |
 | Medium | No IP-level rate limiting (Threat 5) | Implement `flask-limiter` |
 | Low | Username field has no max length (Threat 7) | Add `maxlength` to HTML input + server-side check |
