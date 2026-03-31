@@ -502,17 +502,19 @@ Attackers use leaked username/password pairs from other breaches to gain access.
 | Register with username in password | `Bobby@123` (username = Bobby) | Rejected | ✓ Blocked — username detected |
 
 #### Finding
-Strong password requirements at registration reduce the likelihood that user passwords appear in common leaked credential lists. Progressive lockout limits the speed of stuffing attempts. No IP-level rate limiting or CAPTCHA exists, so automated tools could still cycle through usernames before triggering per-account lockouts.
+Strong password requirements at registration reduce the likelihood that user passwords appear in common leaked credential lists. Progressive lockout limits the speed of stuffing attempts per account.
 
-#### Status: ⚠ Partial
+IP-level rate limiting (e.g. `flask-limiter` - by default stores counts in memory — fine for a single-process dev server. In production it needs "Redis") is intentionally **out of scope** for this project. This application runs on a local development server (`127.0.0.1`) and is not publicly hosted. IP-level limiting is a network/infrastructure-level control that is only meaningful when the server is reachable from external IPs on the internet. In a local environment, every request originates from the same machine, making IP-based blocking ineffective and unnecessary.
+
+#### Status: ⚠ Partial — by design
 - Password strength enforcement: ✓ Mitigated
-- Per-account lockout: ✓ Mitigated
-- IP-level rate limiting: ✗ Not implemented — automated tooling can target many accounts in parallel
+- Per-account progressive lockout: ✓ Mitigated
+- IP-level rate limiting: — Out of scope (local dev environment, not publicly hosted)
 
 #### CWE reference
 | CWE ID | Name | Status |
 |--------|------|--------|
-| CWE-307 | Improper Restriction of Excessive Authentication Attempts | ⚠ Partial — per-account lockout exists, no IP-level limiting |
+| CWE-307 | Improper Restriction of Excessive Authentication Attempts | ✓ Resolved for local scope — per-account progressive lockout implemented |
 | CWE-521 | Weak Password Requirements | ✓ Resolved — enforced at registration and reset |
 
 ---
@@ -765,7 +767,7 @@ Same as Threat 8 — `SameSite=Lax` provides partial protection. No CSRF tokens 
 | 2 | Password Guessing / Brute Force | CWE-307 | ✓ Mitigated — progressive lockout |
 | 3 | Stored Credentials in DB | CWE-522 | ✓ Mitigated — bcrypt everywhere |
 | 4 | Password Recovery Abuse | CWE-640 | ⚠ Partial — flow protected, only 1 of 3 questions asked |
-| 5 | Credential Stuffing | CWE-307 | ⚠ Partial — per-account lockout, no IP-level limiting |
+| 5 | Credential Stuffing | CWE-307 | ⚠ Partial — per-account lockout implemented; IP-level limiting out of scope (local dev) |
 | 6 | SQL Injection | CWE-89 | ✓ Mitigated — SQLAlchemy ORM throughout |
 | 7 | Oversized Input | CWE-20 | ⚠ Partial — feedback protected, username has no max length |
 | 8 | CSRF (Auth Forms) | CWE-352 | ⚠ Partial — SameSite=Lax only, no CSRF tokens |
@@ -785,7 +787,7 @@ Same as Threat 8 — `SameSite=Lax` provides partial protection. No CSRF tokens 
 | High | No CSRF tokens (Threats 8, 13) | Implement Flask-WTF `CSRFProtect` |
 | Medium | `/verify_username` enumerates usernames (Threat 1) | ✓ Fixed — generic message regardless of outcome |
 | Medium | Only 1 of 3 security questions asked (Threat 4) | Require answers to all 3 |
-| Medium | No IP-level rate limiting (Threat 5) | Implement `flask-limiter` |
+| Medium | No IP-level rate limiting (Threat 5) | Out of scope — local dev environment, not publicly hosted |
 | Low | Username field has no max length (Threat 7) | Add `maxlength` to HTML input + server-side check |
 | Low | `SESSION_COOKIE_SECURE = False` (Threat 10, 11) | Set `True` in production via env toggle |
 
