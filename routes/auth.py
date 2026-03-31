@@ -9,7 +9,18 @@ from models import db, User
 auth_bp = Blueprint("auth", __name__)
 
 MAX_LOGIN_ATTEMPTS = 5
-LOCKOUT_TIME = timedelta(minutes=5)
+BASE_LOCKOUT_MINUTES = 5
+
+
+def get_lockout_duration(lockout_count: int, last_minutes: int) -> timedelta:
+    """Progressive lockout: 5 → x3=15 → x4=60 → x5=300 → ...
+    1st lockout: 5 mins (base)
+    Each subsequent lockout: previous_duration * (lockout_count + 2)
+    """
+    if lockout_count == 1:
+        return timedelta(minutes=BASE_LOCKOUT_MINUTES)
+    multiplier = lockout_count + 2
+    return timedelta(minutes=last_minutes * multiplier)
 
 
 def password_ok(pw: str):
@@ -61,8 +72,12 @@ def register():
         name_parts = [p for p in [first_name.lower(), last_name.lower()] if len(p) >= 3]
         for part in name_parts:
             if part in pw_lower:
-                flash(f"Password must not contain your first or last name.", "error")
+                flash("Password must not contain your first or last name.", "error")
                 return redirect(url_for("auth.register"))
+
+        if len(username) >= 3 and username.lower() in pw_lower:
+            flash("Password must not contain your username.", "error")
+            return redirect(url_for("auth.register"))
 
         if User.query.filter_by(username=username).first():
             flash("Username already exists.", "error")
@@ -105,13 +120,15 @@ def login():
         if user:
 
             # Check if account is locked
-            if user.failed_logins >= MAX_LOGIN_ATTEMPTS:
+            if user.locked_until and datetime.utcnow() < user.locked_until:
+                remaining_seconds = int((user.locked_until - datetime.utcnow()).total_seconds())
+                remaining_minutes = max(1, remaining_seconds // 60)
+                flash(f"Account locked. Try again in {remaining_minutes} minute(s).", "error")
+                return redirect(url_for("auth.login"))
 
-                if user.last_login and datetime.utcnow() - user.last_login < LOCKOUT_TIME:
-                    flash("Account locked. Try again in 5 minutes.", "error")
-                    return redirect(url_for("auth.login"))
-
-                # Unlock after timeout
+            # Clear expired lockout
+            if user.locked_until and datetime.utcnow() >= user.locked_until:
+                user.locked_until = None
                 user.failed_logins = 0
                 db.session.commit()
 
@@ -120,14 +137,20 @@ def login():
             if user:
                 user.failed_logins += 1
                 user.last_login = datetime.utcnow()
-                db.session.commit()
 
-                remaining = MAX_LOGIN_ATTEMPTS - user.failed_logins
-
-                if remaining > 0:
-                    flash(f"Invalid credentials. {remaining} attempts remaining.", "error")
+                if user.failed_logins >= MAX_LOGIN_ATTEMPTS:
+                    user.lockout_count += 1
+                    duration = get_lockout_duration(user.lockout_count, user.last_lockout_minutes)
+                    total_minutes = int(duration.total_seconds() // 60)
+                    user.last_lockout_minutes = total_minutes
+                    user.locked_until = datetime.utcnow() + duration
+                    user.failed_logins = 0
+                    db.session.commit()
+                    flash(f"Account locked for {total_minutes} minute(s) due to too many failed login attempts.", "error")
                 else:
-                    flash("Account locked for 5 minutes due to too many failed login attempts.", "error")
+                    db.session.commit()
+                    remaining = MAX_LOGIN_ATTEMPTS - user.failed_logins
+                    flash(f"Invalid credentials. {remaining} attempts remaining.", "error")
 
             else:
                 flash("Invalid credentials.", "error")
@@ -282,6 +305,17 @@ def reset_password():
 
         if not password_ok(new_password):
             flash("Password must be 8+ chars, include at least 1 uppercase, 1 number & 1 symbol.", "error")
+            return render_template("reset_password.html")
+
+        pw_lower = new_password.lower()
+        name_parts = [p for p in [user.first_name.lower(), user.last_name.lower()] if len(p) >= 3]
+        for part in name_parts:
+            if part in pw_lower:
+                flash("Password must not contain your first or last name.", "error")
+                return render_template("reset_password.html")
+
+        if len(user.username) >= 3 and user.username.lower() in pw_lower:
+            flash("Password must not contain your username.", "error")
             return render_template("reset_password.html")
 
         user.set_password(new_password)

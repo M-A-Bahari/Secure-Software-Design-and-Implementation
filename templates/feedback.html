@@ -34,15 +34,10 @@
     {% endif %}
   {% endwith %}
 
-  <div class="input-box">
-    <input type="text" name="name" placeholder="Your Name" required>
-    <i class='bx bxs-user'></i>
-  </div>
-
-  <div class="input-box">
+  <div class="input-box" style="position: relative;">
     <input type="email" id="email" name="email" placeholder="Your Email" required>
-    <i class='bx bxs-envelope'></i>
-    <span id="email-error" style="color: red; font-size: 0.8rem; display: none;">Please enter a valid email address (e.g. name@example.com)</span>
+    <i class='bx bxs-envelope' style="position: absolute; top: 22px; transform: translateY(-50%); right: 15px; pointer-events: none;"></i>
+    <span id="email-error" style="color: red; font-size: 0.8rem; display: block; visibility: hidden; margin-top: 4px;">Please enter a valid email address (e.g. name@example.com)</span>
   </div>
 
   <div class="input-box">
@@ -68,11 +63,11 @@
   emailInput.addEventListener('blur', function () {
     const val = emailInput.value.trim();
     const valid = /^[^@]+@[^@]+\.[^@]+$/.test(val);
-    emailError.style.display = (val && !valid) ? 'block' : 'none';
+    emailError.style.visibility = (val && !valid) ? 'visible' : 'hidden';
   });
 
   emailInput.addEventListener('input', function () {
-    emailError.style.display = 'none';
+    emailError.style.visibility = 'hidden';
   });
 
   // Character countdown

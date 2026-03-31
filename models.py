@@ -27,6 +27,10 @@ class User(UserMixin, db.Model):
     failed_logins = db.Column(db.Integer, default=0)
     last_login = db.Column(db.DateTime)
     locked_until = db.Column(db.DateTime, nullable=True)
+    lockout_count = db.Column(db.Integer, default=0, nullable=False)
+    last_lockout_minutes = db.Column(db.Integer, default=0, nullable=False)
+    feedback_count = db.Column(db.Integer, default=0, nullable=False)
+    feedback_date = db.Column(db.Date, nullable=True)
 
     def set_password(self, password: str):
         self.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
@@ -40,14 +44,17 @@ class User(UserMixin, db.Model):
         self.security_answer3 = bcrypt.generate_password_hash(answer3.lower().strip()).decode("utf-8")
 
     def check_security_answer(self, answer: str, stored_hash: str) -> bool:
-        return bcrypt.check_password_hash(stored_hash, answer.lower().strip())
+        try:
+            return bcrypt.check_password_hash(stored_hash, answer.lower().strip())
+        except ValueError:
+            return False
     
 class Feedback(db.Model):
     __tablename__ = "feedback"
 
     id = db.Column(db.Integer, primary_key=True)
 
-    name = db.Column(db.String(100), nullable=False)
+    username = db.Column(db.String(120), nullable=False)
 
     email = db.Column(db.String(255), nullable=False)
 
