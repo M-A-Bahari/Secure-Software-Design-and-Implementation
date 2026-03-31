@@ -645,26 +645,30 @@ Attacker steals a valid session cookie from an authenticated user and replays it
 | Test | Method | Expected | Result |
 |------|--------|----------|--------|
 | Copy session cookie from DevTools, paste into different browser | Browser DevTools → copy `session` cookie value → set in new browser | Access granted as victim | ✓ Access granted — session cookie replayed successfully |
-| Check if session ID regenerates after login | Compare cookie before and after login | New cookie issued | ✗ Flask does not regenerate session on login by default |
+| Check if session ID regenerates after login | Compare cookie before and after login | New cookie issued | ✓ Fixed (2026-03-31) — `session.clear()` before `login_user()` forces new session |
 | Check `HttpOnly` flag on session cookie | Browser DevTools → Application → Cookies | `HttpOnly` = true | ✓ Confirmed — JS cannot read the cookie |
-| Check `Secure` flag | DevTools | `Secure` = true | ✗ `SESSION_COOKIE_SECURE = False` — cookie sent over HTTP |
-| Logout and replay old cookie | Copy cookie before logout, paste after logout | Session invalid | ✗ `logout_user()` clears client-side only — server does not invalidate the token |
+| Check `Secure` flag | DevTools | `Secure` = true | — Out of scope (local dev, HTTP only) |
+| Logout and replay old cookie | Copy cookie before logout, paste after logout | Session invalid | — Out of scope — requires server-side session store (architectural change) |
 
 #### Finding
-Session hijacking via cookie replay is possible. The `HttpOnly` flag prevents JavaScript from reading the cookie, but the `Secure` flag is off (dev only), meaning cookies travel over plain HTTP. Flask's default session implementation is stateless (signed cookie) — `logout_user()` only clears the client-side cookie; if an attacker copied the cookie before logout, it remains valid until the `SECRET_KEY` changes or the cookie expires.
+Session regeneration on login is now implemented — `session.clear()` is called immediately before `login_user()`, discarding the pre-authentication session and issuing a new one. This prevents session fixation attacks where an attacker plants a known session ID before the user logs in.
 
-#### Status: ⚠ Partial
-- `HttpOnly`: ✓ Mitigated — JS cannot steal cookie
-- `Secure` flag: ✗ Off (dev) — must be `True` in production
-- Session regeneration on login: ✗ Not implemented
-- Server-side session invalidation on logout: ✗ Not possible with Flask's default signed-cookie sessions
+The remaining two items are out of scope for this local project:
+- **`Secure` flag:** `SESSION_COOKIE_SECURE = False` is correct for HTTP-only local dev. Must be `True` in production over HTTPS.
+- **Server-side session invalidation on logout:** Flask's default session is a stateless signed cookie — the server has no session store to invalidate. Fixing this requires replacing Flask's session backend with `flask-session` + a database, which is an architectural change beyond this project's scope.
+
+#### Status: ⚠ Partial — remaining items out of scope
+- `HttpOnly`: ✓ Mitigated — JS cannot read the cookie
+- Session regeneration on login: ✓ Mitigated — `session.clear()` before `login_user()`
+- `Secure` flag: — Out of scope (local dev, HTTP only — must be True in production)
+- Server-side session invalidation on logout: — Out of scope (requires server-side session store)
 
 #### CWE reference
 | CWE ID | Name | Status |
 |--------|------|--------|
-| CWE-384 | Session Fixation | ✗ Open — session ID not regenerated after login |
-| CWE-613 | Insufficient Session Expiration | ✗ Open — logout does not invalidate cookie server-side |
-| CWE-614 | Sensitive Cookie Without Secure Flag | ⚠ Dev only — must be True in production |
+| CWE-384 | Session Fixation | ✓ Resolved — session regenerated on login via `session.clear()` |
+| CWE-613 | Insufficient Session Expiration | — Out of scope — stateless signed-cookie sessions, no server-side store |
+| CWE-614 | Sensitive Cookie Without Secure Flag | — Out of scope — local dev only, must be True in production |
 | CWE-1004 | Sensitive Cookie Without HttpOnly Flag | ✓ Resolved — HttpOnly=True |
 
 ---
@@ -678,30 +682,25 @@ Insecure configuration settings (debug mode, insecure cookies) expose internal d
 #### Tests performed
 | Test | Method | Expected | Result |
 |------|--------|----------|--------|
-| Trigger a runtime error while app is running | Navigate to a broken URL / submit bad data | Generic error page in production | ✗ `debug=True` in `app.py` — full Werkzeug stack trace shown |
-| Attempt to access Werkzeug interactive debugger | Trigger error, click console icon on error page | PIN required | ✓ PIN required (but PIN can be computed if attacker has server access) |
-| Check `SESSION_COOKIE_SECURE` | Config + DevTools | `True` in production | ✗ `False` hardcoded — must be env-toggled |
+| Trigger a runtime error while app is running | Navigate to a broken URL / submit bad data | Generic error page | ✓ Fixed (2026-03-31) — debug toggled via `FLASK_ENV` env variable |
+| Attempt to access Werkzeug interactive debugger | Trigger error, click console icon | Not accessible | ✓ Debugger not exposed when `FLASK_ENV` is unset or non-development |
+| Check `SESSION_COOKIE_SECURE` | Config + DevTools | `True` in production | — Out of scope (local dev, HTTP only) |
 
 #### Finding
-`debug=True` is hardcoded in `app.py`. In a production or shared environment this exposes full stack traces, source code snippets, and the Werkzeug interactive debugger (which allows arbitrary Python execution with the right PIN). `SESSION_COOKIE_SECURE = False` means session cookies are sent over plain HTTP.
+`debug=True` was hardcoded in `app.py`, exposing full stack traces and the Werkzeug interactive debugger on any error. Fixed by toggling debug mode via the `FLASK_ENV` environment variable — `debug=True` only when `FLASK_ENV=development` is set in `.env`. In any other environment (production, staging, grading), debug mode is off and errors show a generic page only.
 
-#### Status: ✗ Not Mitigated (for production)
+`SESSION_COOKIE_SECURE = False` is intentionally out of scope — the app runs on HTTP locally and setting it to `True` would break login. This must be set to `True` before any production deployment over HTTPS.
 
-#### Mitigation required
-```python
-# app.py
-app.run(debug=os.getenv("FLASK_ENV") == "development")
-
-# config.py
-SESSION_COOKIE_SECURE = os.getenv("FLASK_ENV") != "development"
-```
+#### Status: ⚠ Partial — by design
+- `debug=True` hardcoded: ✓ Mitigated — controlled via `FLASK_ENV` environment variable
+- `SESSION_COOKIE_SECURE`: — Out of scope (local dev, HTTP only)
 
 #### CWE reference
 | CWE ID | Name | Status |
 |--------|------|--------|
-| CWE-16 | Configuration | ✗ Open — debug=True hardcoded, SECURE cookie off |
-| CWE-215 | Information Exposure Through Debug Information | ✗ Open — stack traces exposed via debug mode |
-| CWE-614 | Sensitive Cookie in HTTPS Session Without Secure Attribute | ⚠ Dev only — must be True in production |
+| CWE-16 | Configuration | ✓ Resolved — debug mode controlled via environment variable |
+| CWE-215 | Information Exposure Through Debug Information | ✓ Resolved — stack traces no longer exposed outside dev environment |
+| CWE-614 | Sensitive Cookie in HTTPS Session Without Secure Attribute | — Out of scope — local dev only, must be True in production |
 
 ---
 
@@ -773,8 +772,8 @@ Same reasoning as Threat 8 — `SameSite=Lax` provides partial protection. CSRF 
 | 7 | Oversized Input | CWE-20 | ✓ Mitigated — all fields have client-side and server-side length limits |
 | 8 | CSRF (Auth Forms) | CWE-352 | ⚠ Partial — SameSite=Lax in place; CSRF tokens out of scope (local dev) |
 | 9 | Forge Session Cookies | CWE-565 | ✓ Mitigated — strong random SECRET_KEY, hardcoded fallback removed |
-| 10 | Session Hijacking | CWE-384 | ⚠ Partial — HttpOnly set, Secure off, no server-side invalidation |
-| 11 | Insecure Configuration | CWE-16 | ✗ Not Mitigated — debug=True, SECURE cookie off |
+| 10 | Session Hijacking | CWE-384 | ⚠ Partial — HttpOnly set, session regeneration on login implemented; Secure flag and server-side invalidation out of scope |
+| 11 | Insecure Configuration | CWE-16 | ⚠ Partial — debug=True fixed via FLASK_ENV; SECURE cookie out of scope (local dev) |
 | 12 | Spam / Malicious Feedback | CWE-400 | ✓ Mitigated — 5/day limit, length cap, auth required |
 | 13 | CSRF (Feedback) | CWE-352 | ⚠ Partial — SameSite=Lax in place; CSRF tokens out of scope (local dev) |
 
@@ -784,7 +783,7 @@ Same reasoning as Threat 8 — `SameSite=Lax` provides partial protection. CSRF 
 | Priority | Issue | Fix |
 |----------|-------|-----|
 | Critical | Weak `SECRET_KEY` (Threat 9) | ✓ Fixed — `secrets.token_urlsafe(32)` in `.env`, hardcoded fallback removed |
-| High | `debug=True` hardcoded (Threat 11) | Toggle via `FLASK_ENV` environment variable |
+| High | `debug=True` hardcoded (Threat 11) | ✓ Fixed — toggled via `FLASK_ENV` environment variable |
 | High | No CSRF tokens (Threats 8, 13) | Out of scope — local dev environment, not publicly hosted |
 | Medium | `/verify_username` enumerates usernames (Threat 1) | ✓ Fixed — generic message regardless of outcome |
 | Medium | Only 1 of 3 security questions asked (Threat 4) | Require answers to all 3 |

@@ -171,6 +171,8 @@ def login():
 
         db.session.commit()
 
+        # Regenerate session to prevent session fixation
+        session.clear()
         login_user(user)
 
         return redirect(url_for("dashboard"))
