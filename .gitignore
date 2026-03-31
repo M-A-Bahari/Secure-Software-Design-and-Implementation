@@ -1,0 +1,33 @@
+# Environment variables — never commit secrets
+.env
+*.pem
+*.key
+*.crt
+
+# SQLite database
+instance/
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

@@ -56,8 +56,16 @@ def register():
             flash("First and last name are required.", "error")
             return redirect(url_for("auth.register"))
 
+        if len(first_name) > 50 or len(last_name) > 50:
+            flash("First and last name must be 50 characters or fewer.", "error")
+            return redirect(url_for("auth.register"))
+
         if len(username) < 3:
             flash("Username must be at least 3 characters.", "error")
+            return redirect(url_for("auth.register"))
+
+        if len(username) > 30:
+            flash("Username must be 30 characters or fewer.", "error")
             return redirect(url_for("auth.register"))
 
         if password != confirm_password:

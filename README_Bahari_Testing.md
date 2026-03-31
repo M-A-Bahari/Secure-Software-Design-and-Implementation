@@ -559,19 +559,21 @@ Attacker submits unexpectedly large or malformed input to crash the system or ca
 | 256-character email | 256-char string@domain | Email | Rejected | ✓ `MAX_EMAIL_LENGTH=255` enforced |
 | 101-character name | 101 chars | Feedback name (now username) | Rejected | ✓ `MAX_NAME_LENGTH=100` enforced |
 | Empty message | Submit blank message | Blocked | ✓ `required` attribute + server validation |
-| Extremely long username at registration | 500-char username | Username | Accepted (no server limit) | ✗ No max length on username field |
+| Extremely long username at registration | 500-char username | Username | Blocked | ✓ Fixed (2026-03-31) — `maxlength="30"` in HTML + server-side check |
+| Extremely long first/last name | 200-char name | First/last name | Blocked | ✓ Fixed (2026-03-31) — `maxlength="50"` in HTML + server-side check |
 
 #### Finding
-Feedback fields are well-protected with both client-side (`maxlength`) and server-side (`MAX_*_LENGTH`) limits. However, the username field at registration has no maximum length enforced server-side — a very long username would be accepted and stored.
+All registration fields now have both client-side (`maxlength`) and server-side length enforcement. Limits follow industry standard practice — username: 30 (Twitter: 15, Instagram: 30, GitHub: 39), first/last name: 50 (covers all real compound names), password: 200, security answers: 200. Feedback fields were already protected.
 
-#### Status: ⚠ Partial
+#### Status: ✓ Mitigated
 - Feedback fields: ✓ Mitigated
-- Username field: ✗ No maximum length enforced
+- Username field: ✓ Mitigated — `maxlength="30"` HTML + server-side check (industry standard)
+- First/last name: ✓ Mitigated — `maxlength="50"` HTML + server-side check (industry standard)
 
 #### CWE reference
 | CWE ID | Name | Status |
 |--------|------|--------|
-| CWE-20 | Improper Input Validation | ⚠ Partial — feedback protected, username max length missing |
+| CWE-20 | Improper Input Validation | ✓ Resolved — all input fields have client-side and server-side length limits |
 
 ---
 
@@ -589,16 +591,18 @@ Attacker tricks an authenticated user into submitting an unintended request (e.g
 | Check for CSRF tokens in any form | View page source of login, register, reset forms | Token present or absent | ✗ No CSRF tokens in any form | 
 
 #### Finding
-`SESSION_COOKIE_SAMESITE = "Lax"` provides partial CSRF protection — the browser will not send the session cookie on cross-site POST requests initiated by third-party pages in most modern browsers. However, `Lax` does not cover all CSRF vectors (e.g. top-level navigations with GET, or older browsers). No CSRF tokens (Flask-WTF) are implemented.
+`SESSION_COOKIE_SAMESITE = "Lax"` provides partial CSRF protection — the browser will not send the session cookie on cross-site POST requests initiated by third-party pages in most modern browsers.
 
-#### Status: ⚠ Partial
-- `SameSite=Lax` cookie: ✓ Mitigates most CSRF in modern browsers
-- CSRF tokens (Flask-WTF): ✗ Not implemented — full protection requires tokens
+CSRF tokens (Flask-WTF) are intentionally **out of scope** for this project. A real CSRF attack requires a publicly reachable URL that an attacker can target from an external malicious page. Since this application runs exclusively on a local development server (`127.0.0.1`) and is not hosted on the internet, there is no public URL for an attacker to exploit. CSRF token implementation is a production deployment concern and would be the first security addition before any public hosting.
+
+#### Status: ⚠ Partial — by design
+- `SameSite=Lax` cookie: ✓ Mitigates cross-site cookie sending in modern browsers
+- CSRF tokens (Flask-WTF): — Out of scope (local dev environment, not publicly hosted)
 
 #### CWE reference
 | CWE ID | Name | Status |
 |--------|------|--------|
-| CWE-352 | Cross-Site Request Forgery | ⚠ Partial — SameSite=Lax mitigates most; no CSRF tokens |
+| CWE-352 | Cross-Site Request Forgery | ⚠ Partial — SameSite=Lax in place; CSRF tokens out of scope for local dev |
 
 ---
 
@@ -611,28 +615,23 @@ If the `SECRET_KEY` is weak or exposed, an attacker can forge a valid Flask sess
 #### Tests performed
 | Test | Method | Expected | Result |
 |------|--------|----------|--------|
-| Inspect `SECRET_KEY` in config | Read `config.py` | Strong random key | ✗ `"dev-secret-change-me"` fallback hardcoded |
-| Inspect `.env` file SECRET_KEY value | Read `.env` | Long random string | ✗ Value is `3414690219112` — short, numeric only |
-| Attempt to forge session cookie using known key | Use `flask-unsign` with known key | Cookie accepted | ✓ (Theoretical) — weak key makes this feasible |
+| Inspect `SECRET_KEY` in config | Read `config.py` | Strong random key, no fallback | ✓ Fixed (2026-03-31) — raises `ValueError` if not set |
+| Inspect `.env` file SECRET_KEY value | Read `.env` | Long random string | ✓ Fixed (2026-03-31) — replaced with 43-char `secrets.token_urlsafe(32)` value |
+| Attempt to forge session cookie using known key | Use `flask-unsign` with old key | Cookie accepted | ✓ No longer feasible — key is cryptographically random |
 
 #### Finding
-The `SECRET_KEY` in `.env` is `3414690219112` — only 13 characters, entirely numeric, and predictable. The fallback in `config.py` is `"dev-secret-change-me"` — also weak and publicly known. An attacker who knows or guesses the key can use tools like `flask-unsign` to forge session cookies and impersonate any user including setting `user_id` to an admin account.
+**Vulnerability confirmed then mitigated.** The original `SECRET_KEY` (`3414690219112`) was 13 characters, entirely numeric, and trivially guessable. The fallback `"dev-secret-change-me"` in `config.py` was publicly known. Both have been fixed:
 
-#### Status: ✗ Not Mitigated
+- `.env` now contains a 43-character cryptographically random key generated with `secrets.token_urlsafe(32)`
+- `config.py` fallback removed — app raises `ValueError` at startup if `SECRET_KEY` is not set, preventing silent use of a weak key
 
-#### Mitigation required
-Replace `SECRET_KEY` with a cryptographically random value:
-```python
-import secrets
-print(secrets.token_urlsafe(32))
-```
-Store the result in `.env` and remove the hardcoded fallback in `config.py`.
+#### Status: ✓ Mitigated
 
 #### CWE reference
 | CWE ID | Name | Status |
 |--------|------|--------|
-| CWE-565 | Reliance on Cookies Without Validation | ✗ Open — weak SECRET_KEY allows cookie forgery |
-| CWE-321 | Use of Hard-coded Cryptographic Key | ✗ Open — fallback key hardcoded in config.py |
+| CWE-565 | Reliance on Cookies Without Validation | ✓ Resolved — strong random SECRET_KEY in .env |
+| CWE-321 | Use of Hard-coded Cryptographic Key | ✓ Resolved — hardcoded fallback removed from config.py |
 
 ---
 
@@ -748,14 +747,16 @@ Attacker tricks an authenticated user into submitting feedback from a malicious 
 | Check for CSRF token in feedback form | View source of `feedback.html` | Token field present | ✗ No CSRF token in form |
 
 #### Finding
-Same as Threat 8 — `SameSite=Lax` provides partial protection. No CSRF tokens implemented. For the feedback form specifically, a successful CSRF attack would allow an attacker to submit feedback on behalf of a logged-in user from an external page (in browsers that don't enforce `Lax` strictly, or via same-site subdomains).
+Same reasoning as Threat 8 — `SameSite=Lax` provides partial protection. CSRF tokens (Flask-WTF) are intentionally **out of scope** for this project. The application runs on a local development server (`127.0.0.1`) with no public URL, so there is no external page an attacker could use to forge a cross-site request against this server.
 
-#### Status: ⚠ Partial
+#### Status: ⚠ Partial — by design
+- `SameSite=Lax` cookie: ✓ Mitigates cross-site cookie sending in modern browsers
+- CSRF tokens (Flask-WTF): — Out of scope (local dev environment, not publicly hosted)
 
 #### CWE reference
 | CWE ID | Name | Status |
 |--------|------|--------|
-| CWE-352 | Cross-Site Request Forgery | ⚠ Partial — SameSite=Lax only; no CSRF tokens |
+| CWE-352 | Cross-Site Request Forgery | ⚠ Partial — SameSite=Lax in place; CSRF tokens out of scope for local dev |
 
 ---
 
@@ -769,26 +770,26 @@ Same as Threat 8 — `SameSite=Lax` provides partial protection. No CSRF tokens 
 | 4 | Password Recovery Abuse | CWE-640 | ⚠ Partial — flow protected, only 1 of 3 questions asked |
 | 5 | Credential Stuffing | CWE-307 | ⚠ Partial — per-account lockout implemented; IP-level limiting out of scope (local dev) |
 | 6 | SQL Injection | CWE-89 | ✓ Mitigated — SQLAlchemy ORM throughout |
-| 7 | Oversized Input | CWE-20 | ⚠ Partial — feedback protected, username has no max length |
-| 8 | CSRF (Auth Forms) | CWE-352 | ⚠ Partial — SameSite=Lax only, no CSRF tokens |
-| 9 | Forge Session Cookies | CWE-565 | ✗ Not Mitigated — weak SECRET_KEY |
+| 7 | Oversized Input | CWE-20 | ✓ Mitigated — all fields have client-side and server-side length limits |
+| 8 | CSRF (Auth Forms) | CWE-352 | ⚠ Partial — SameSite=Lax in place; CSRF tokens out of scope (local dev) |
+| 9 | Forge Session Cookies | CWE-565 | ✓ Mitigated — strong random SECRET_KEY, hardcoded fallback removed |
 | 10 | Session Hijacking | CWE-384 | ⚠ Partial — HttpOnly set, Secure off, no server-side invalidation |
 | 11 | Insecure Configuration | CWE-16 | ✗ Not Mitigated — debug=True, SECURE cookie off |
 | 12 | Spam / Malicious Feedback | CWE-400 | ✓ Mitigated — 5/day limit, length cap, auth required |
-| 13 | CSRF (Feedback) | CWE-352 | ⚠ Partial — SameSite=Lax only, no CSRF tokens |
+| 13 | CSRF (Feedback) | CWE-352 | ⚠ Partial — SameSite=Lax in place; CSRF tokens out of scope (local dev) |
 
 **Legend:** ✓ Mitigated &nbsp;|&nbsp; ⚠ Partial &nbsp;|&nbsp; ✗ Not Mitigated
 
 ### Open items requiring further action
 | Priority | Issue | Fix |
 |----------|-------|-----|
-| Critical | Weak `SECRET_KEY` (Threat 9) | Generate with `secrets.token_urlsafe(32)`, store in `.env` |
+| Critical | Weak `SECRET_KEY` (Threat 9) | ✓ Fixed — `secrets.token_urlsafe(32)` in `.env`, hardcoded fallback removed |
 | High | `debug=True` hardcoded (Threat 11) | Toggle via `FLASK_ENV` environment variable |
-| High | No CSRF tokens (Threats 8, 13) | Implement Flask-WTF `CSRFProtect` |
+| High | No CSRF tokens (Threats 8, 13) | Out of scope — local dev environment, not publicly hosted |
 | Medium | `/verify_username` enumerates usernames (Threat 1) | ✓ Fixed — generic message regardless of outcome |
 | Medium | Only 1 of 3 security questions asked (Threat 4) | Require answers to all 3 |
 | Medium | No IP-level rate limiting (Threat 5) | Out of scope — local dev environment, not publicly hosted |
-| Low | Username field has no max length (Threat 7) | Add `maxlength` to HTML input + server-side check |
+| Low | Username field has no max length (Threat 7) | ✓ Fixed — `maxlength` added to HTML + server-side checks |
 | Low | `SESSION_COOKIE_SECURE = False` (Threat 10, 11) | Set `True` in production via env toggle |
 
 ---

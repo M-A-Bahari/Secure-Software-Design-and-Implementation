@@ -27,40 +27,40 @@
 {% endwith %}
 
 <div class="input-box">
-<input type="text" name="first_name" placeholder="First Name" required>
+<input type="text" name="first_name" placeholder="First Name" maxlength="50" required>
 <i class='bx bxs-user'></i>
 </div>
 
 <div class="input-box">
-<input type="text" name="last_name" placeholder="Last Name" required>
+<input type="text" name="last_name" placeholder="Last Name" maxlength="50" required>
 <i class='bx bxs-user'></i>
 </div>
 
 <div class="input-box">
-<input type="text" name="username" placeholder="Username" required>
+<input type="text" name="username" placeholder="Username" maxlength="30" required>
 <i class='bx bxs-user'></i>
 </div>
 
 <div class="input-box">
-<input type="password" name="password" id="password" placeholder="Password" required>
+<input type="password" name="password" id="password" placeholder="Password" maxlength="200" required>
 <i id="eye-password" class='bx bxs-hide' style="cursor:pointer;" onmousedown="peek('password')" onmouseup="hide('password')" onmouseleave="hide('password')"></i>
 </div>
 
 <div class="input-box">
-<input type="password" name="confirm_password" id="confirm_password" placeholder="Confirm Password" required>
+<input type="password" name="confirm_password" id="confirm_password" placeholder="Confirm Password" maxlength="200" required>
 <i id="eye-confirm_password" class='bx bxs-hide' style="cursor:pointer;" onmousedown="peek('confirm_password')" onmouseup="hide('confirm_password')" onmouseleave="hide('confirm_password')"></i>
 </div>
 
 <div class="input-box">
-<input type="text" name="answer1" placeholder="First pet's name?" required>
+<input type="text" name="answer1" placeholder="First pet's name?" maxlength="200" required>
 </div>
 
 <div class="input-box">
-<input type="text" name="answer2" placeholder="Elementary school you attended?" required>
+<input type="text" name="answer2" placeholder="Elementary school you attended?" maxlength="200" required>
 </div>
 
 <div class="input-box">
-<input type="text" name="answer3" placeholder="City you were born in?" required>
+<input type="text" name="answer3" placeholder="City you were born in?" maxlength="200" required>
 </div>
 
 <button type="submit" class="btn">Create Account</button>
