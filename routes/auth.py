@@ -122,6 +122,7 @@ def login():
 
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
+        remember = request.form.get("remember") == "on"
 
         user = User.query.filter_by(username=username).first()
 
@@ -173,7 +174,7 @@ def login():
 
         # Regenerate session to prevent session fixation
         session.clear()
-        login_user(user)
+        login_user(user, remember=remember)
 
         return redirect(url_for("dashboard"))
 
@@ -333,9 +334,9 @@ def reset_password():
 
         db.session.commit()
 
-        flash("Password reset successful. You may now login.", "success")
-
         session.clear()
+
+        flash("Password reset successful. You may now login.", "success")
 
         return redirect(url_for("auth.login"))
 

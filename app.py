@@ -1,7 +1,8 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask, redirect, url_for, render_template
 from flask_login import LoginManager, login_required, current_user
-from dotenv import load_dotenv
-
 from config import Config
 from models import db, bcrypt, User
 from routes.auth import auth_bp
@@ -9,7 +10,6 @@ from routes.feedback_routes import feedback_bp
 
 
 def create_app() -> Flask:
-    load_dotenv()
 
     app = Flask(__name__)
     app.config.from_object(Config)
