@@ -363,4 +363,24 @@ This project provided concrete, hands-on experience with applying security engin
 
 ---
 
+## References
+
+1. OWASP Foundation. (2021). *OWASP Top Ten 2021*. Open Web Application Security Project. https://owasp.org/Top10/
+
+2. MITRE Corporation. (2024). *Common Weakness Enumeration (CWE)*. https://cwe.mitre.org/
+
+3. National Institute of Standards and Technology. (2017). *NIST Special Publication 800-63B: Digital Identity Guidelines — Authentication and Lifecycle Management*. U.S. Department of Commerce. https://doi.org/10.6028/NIST.SP.800-63b
+
+4. Microsoft. (2012). *Microsoft Security Development Lifecycle (SDL)*. Microsoft Corporation. https://www.microsoft.com/en-us/securityengineering/sdl
+
+5. Pallets Projects. (2024). *Flask Documentation* (Version 3.1.2). https://flask.palletsprojects.com/
+
+6. SQLAlchemy Authors. (2024). *SQLAlchemy ORM Documentation*. https://docs.sqlalchemy.org/
+
+7. Python Software Foundation. (2024). *secrets — Generate secure random numbers for managing secrets*. Python 3 Standard Library Documentation. https://docs.python.org/3/library/secrets.html
+
+8. Pallets Projects. (2024). *Flask-Login Documentation*. https://flask-login.readthedocs.io/
+
+---
+
 *End of Report*
